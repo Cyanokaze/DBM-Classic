@@ -1,7 +1,7 @@
 local mod	= DBM:NewMod("CThun", "DBM-AQ40", 1)
 local L		= mod:GetLocalizedStrings()
 
-mod:SetRevision("@file-date-integer@")
+mod:SetRevision("20200811023807")
 mod:SetCreatureID(15589, 15727)
 mod:SetEncounterID(717)
 mod:SetMinSyncRevision(20200804000000)--2020, 8, 04
@@ -12,11 +12,13 @@ mod:SetWipeTime(25)
 
 mod:RegisterEventsInCombat(
 	"SPELL_CAST_START 26134",
+	"SPELL_CAST_SUCCESS 26586",
 	"CHAT_MSG_MONSTER_EMOTE",
 	"UNIT_DIED"
 )
 
 local warnEyeTentacle		= mod:NewAnnounce("WarnEyeTentacle", 2, 126)
+local warnEyeTentacleP2		= mod:NewAnnounce("WarnEyeTentacleP2", 2, 126)
 --local warnClawTentacle		= mod:NewAnnounce("WarnClawTentacle", 2, 26391)
 --local warnGiantEyeTentacle	= mod:NewAnnounce("WarnGiantEyeTentacle", 3, 26391)
 --local warnGiantClawTentacle	= mod:NewAnnounce("WarnGiantClawTentacle", 3, 26391)
@@ -30,6 +32,7 @@ local yellEyeBeam			= mod:NewYell(26134)
 local timerDarkGlareCD		= mod:NewNextTimer(86, 26029)
 local timerDarkGlare		= mod:NewBuffActiveTimer(37, 26029)
 local timerEyeTentacle		= mod:NewTimer(45, "TimerEyeTentacle", 126, nil, nil, 1)
+local timerEyeTentacleP2 	= mod:NewTimer(30, "TimerEyeTentacleP2", 126, nil, nil, 1)
 --local timerGiantEyeTentacle	= mod:NewTimer(60, "TimerGiantEyeTentacle", 26391, nil, nil, 1)
 --local timerClawTentacle		= mod:NewTimer(11, "TimerClawTentacle", 26391, nil, nil, 1)
 --local timerGiantClawTentacle = mod:NewTimer(60, "TimerGiantClawTentacle", 26391, nil, nil, 1)
@@ -71,6 +74,11 @@ function mod:EyeTentacle()
 	self:ScheduleMethod(45, "EyeTentacle")
 end
 
+function mod:EyeTentacleP2()
+	warnEyeTentacleP2:Show()
+	timerEyeTentacleP2:Start()
+end
+
 function mod:DarkGlare()
 	specWarnDarkGlare:Show()
 	specWarnDarkGlare:Play("laserrun")--Or "watchstep" ?
@@ -95,9 +103,8 @@ do
 
 	function mod:SPELL_CAST_START(args)
 		local spellName = args.spellName
-		if spellName == EyeBeam and args:IsSrcTypeHostile() and DBM.Options.DebugMode then
-			-- the eye target can change to the correct target a tiny bit after the cast starts
-			self:ScheduleMethod(0.1, "BossTargetScanner", args.sourceGUID, "EyeBeamTarget", 0.1, 3)
+		if spellName == EyeBeam and args:IsSrcTypeHostile() then
+			self:BossTargetScanner(args.sourceGUID, "EyeBeamTarget", 0.1, 8)
 		end
 	end
 end
@@ -105,6 +112,7 @@ end
 function mod:CHAT_MSG_MONSTER_EMOTE(msg)
 	if msg == L.Weakened or msg:find(L.Weakened) then
 		self:SendSync("Weakened")
+		timerEyeTentacleP2:Stop()
 	end
 end
 
@@ -119,6 +127,21 @@ function mod:UNIT_DIED(args)
 		self:UnscheduleMethod("DarkGlare")
 	end
 end
+
+do
+	local Birth = DBM:GetSpellInfo(26586)
+	function mod:SPELL_CAST_SUCCESS(args)
+		local spellName = args.spellName
+		if self.vb.phase == 2 then
+			if spellName == Birth then
+				timerEyeTentacleP2:Stop()
+				timerEyeTentacleP2:Start()
+				self:ScheduleMethod(30, "EyeTentacleP2")
+			end
+		end
+	end
+end
+
 
 function mod:OnSync(msg)
 	if not self:IsInCombat() then return end
