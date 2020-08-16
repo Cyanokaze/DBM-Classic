@@ -105,6 +105,7 @@ L:SetWarningLocalization{
 }
 L:SetTimerLocalization{
 	TimerEyeTentacle		= "下一次眼球触须",
+	TimerEyeTentacleP2		= "下一次眼球触须（P2）",
 	TimerWeakened			= "虛弱結束"
 }
 L:SetOptionLocalization{
